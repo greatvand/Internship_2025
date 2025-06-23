@@ -1,0 +1,92 @@
+[servers]
+target_1 ansible_host=52.90.232.139
+target_2 ansible_host=98.81.233.58
+
+[prod]
+target_3 ansible_host=174.129.46.155
+
+[servers:vars]
+ansible_python_interpreter=/usr/bin/python3
+ansible_user=ubuntu
+ansible_ssh_private_key_file=/home/ubuntu/keys/Demo.pem
+
+
+-
+  name: Install Nginx and start it
+  hosts: prod
+  become: yes
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: latest
+    - name: Start Nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+    - name: Deploy webpage
+      copy:
+        src: index.html
+        dest: /var/www/html                                                 
+
+---
+- name: Setup Docker and deploy Django container
+  hosts: prod
+  become: yes
+  vars:
+    image_name: "greatvand/django.nv:2.0"
+    container_name: "django_app"
+    container_port: 8000
+    host_port: 80
+
+  tasks:
+
+  - name: Install required packages
+    apt:
+      name: ['apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common']
+      state: present
+      update_cache: yes
+
+  - name: Add Docker GPG key
+    apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      state: present
+
+  - name: Add Docker repository
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+      state: present
+      filename: docker
+
+  - name: Install Docker
+    apt:
+      name: docker-ce
+      state: latest
+      update_cache: yes
+
+  - name: Start and enable Docker service
+    systemd:
+      name: docker
+      enabled: yes
+      state: started
+
+  - name: Add current user to docker group (optional)
+    user:
+      name: "{{ ansible_user }}"
+      groups: docker
+      append: yes
+
+  - name: Pull the Django Docker image
+    docker_image:
+      name: "{{ image_name }}"
+      source: pull
+
+  - name: Run the Django container
+    docker_container:
+      name: "{{ container_name }}"
+      image: "{{ image_name }}"
+      state: started
+      restart_policy: always
+      ports:
+        - "{{ host_port }}:{{ container_port }}"
