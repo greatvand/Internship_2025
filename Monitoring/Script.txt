@@ -1,0 +1,55 @@
+index.js
+
+const express = require("express");
+const { doSomeHeavyTask } = require("./util");
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.get("/", (req, res) => {
+  return res.json({ message: `Hello from Express Server` });
+});
+
+app.get("/slow", async (req, res) => {
+  try {
+  const timeTaken = await doSomeHeavyTask();
+  return res.json({
+    status: "Success",
+    message: `Heavy task completed in ${timeTaken}ms`,
+  });
+} catch (error) {
+  return res
+    .status(500)
+    .json({ status: "Error", error: error.msg });
+}
+});
+
+app.listen(PORT, () =>
+  console.log(`Express Server Started at http://localhost:${PORT}`)
+);
+
+
+util.js
+
+function getRandomValue(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
+
+function doSomeHeavyTask() {
+  const ms = getRandomValue([100, 150, 200, 300, 600, 500, 1000, 1400, 2500]);
+  const shouldThrowError = getRandomValue([1, 2, 3, 4, 5]) === 5;
+  
+  if (shouldThrowError) {
+    const randomError = getRandomValue([
+      "DB Payment Failure",
+      "DB Server is Down",
+      "Access Denied",
+      "Not Found Error",
+    ]);
+    throw new Error(randomError);
+  }
+
+  return new Promise((resolve, reject) => setTimeout(() => resolve(ms), ms));
+}
+
+module.exports = { doSomeHeavyTask };
